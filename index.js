@@ -218,12 +218,19 @@ async function playSong(guild, query) {
   serverQueue.player.play(resource);
 }
 
-console.log("process.env.TOKEN=>", process?.env?.TOKEN);
 if (!process.env.TOKEN) {
   console.error("❌ TOKEN is missing in environment variables.");
   process.exit(1);
 }
-client.login(process.env.TOKEN);
+// client.login(process.env.TOKEN);
+client
+  .login(process.env.TOKEN)
+  .then(() => {
+    console.log(`✅ Logged in as ${client.user.tag}`);
+  })
+  .catch((err) => {
+    console.error("❌ Failed to login:", err);
+  });
 
 //
 // ✅ ส่วนนี้สำหรับ Render: เปิด Web Server Dummy
