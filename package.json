@@ -1,15 +1,25 @@
 {
   "name": "discord-music-bot",
   "version": "1.0.0",
+  "description": "Discord music bot using ytdl-core and yt-search",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "@discordjs/voice": "^0.16.0",
-    "discord.js": "^14.13.0",
-    "dotenv": "^16.3.1",
-    "play-dl": "^1.9.7"
+    "@discordjs/opus": "^0.10.0",
+    "@discordjs/voice": "^0.15.0",
+    "discord.js": "^14.21.0",
+    "dotenv": "^16.6.1",
+    "execa": "^9.6.0",
+    "libsodium-wrappers": "^0.7.15",
+    "undici": "5.28.3",
+    "youtube-dl-exec": "^3.0.23",
+    "yt-search": "^2.13.1",
+    "ytdl-core": "^4.11.5"
+  },
+  "overrides": {
+    "undici": "5.28.3"
   }
 }

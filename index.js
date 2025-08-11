@@ -4,11 +4,14 @@ import {
   createAudioPlayer,
   createAudioResource,
   AudioPlayerStatus,
-  VoiceConnectionStatus,
-  entersState,
+  generateDependencyReport,
 } from "@discordjs/voice";
-import play from "play-dl";
+import { execa } from "execa";
+import { PassThrough } from "stream";
+import ytSearch from "yt-search";
 import dotenv from "dotenv";
+
+console.log(generateDependencyReport());
 
 dotenv.config();
 
@@ -22,7 +25,6 @@ const client = new Client({
 });
 
 const queue = new Map();
-play.authorization()
 
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
@@ -33,21 +35,16 @@ client.on("messageCreate", async (message) => {
 
   const args = message.content.split(" ");
   const command = args.shift().toLowerCase();
-
   const serverQueue = queue.get(message.guild.id);
 
   if (command === "!play") {
-    const url = args[0];
-    if (!url || !(await play.validate(url))) {
-      return message.reply("❌ กรุณาใส่ลิงก์ YouTube ที่ถูกต้อง");
-    }
+    const query = args.join(" ");
+    if (!query) return message.reply("❌ กรุณาใส่ชื่อเพลงหรือ URL");
 
     const voiceChannel = message.member.voice.channel;
-    if (!voiceChannel) {
-      return message.reply("❌ คุณต้องอยู่ใน voice channel ก่อน");
-    }
+    if (!voiceChannel) return message.reply("❌ เข้าห้องเสียงก่อน!");
 
-    let connection = joinVoiceChannel({
+    const connection = joinVoiceChannel({
       channelId: voiceChannel.id,
       guildId: voiceChannel.guild.id,
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
@@ -55,7 +52,7 @@ client.on("messageCreate", async (message) => {
 
     if (!serverQueue) {
       const player = createAudioPlayer();
-      const queueContruct = {
+      const queueConstruct = {
         voiceChannel,
         connection,
         player,
@@ -63,15 +60,14 @@ client.on("messageCreate", async (message) => {
         playing: true,
       };
 
-      queue.set(message.guild.id, queueContruct);
-
-      queueContruct.songs.push(url);
-      playSong(message.guild, queueContruct.songs[0]);
+      queue.set(message.guild.id, queueConstruct);
+      queueConstruct.songs.push(query);
+      await playSong(message.guild, queueConstruct.songs[0]);
 
       player.on(AudioPlayerStatus.Idle, () => {
-        queueContruct.songs.shift();
-        if (queueContruct.songs.length > 0) {
-          playSong(message.guild, queueContruct.songs[0]);
+        queueConstruct.songs.shift();
+        if (queueConstruct.songs.length > 0) {
+          playSong(message.guild, queueConstruct.songs[0]);
         } else {
           queue.delete(message.guild.id);
           connection.destroy();
@@ -80,54 +76,46 @@ client.on("messageCreate", async (message) => {
 
       connection.subscribe(player);
     } else {
-      serverQueue.songs.push(url);
-      return message.reply(`✅ เพิ่มเข้า queue: ${url}`);
+      serverQueue.songs.push(query);
+      return message.reply(`✅ เพิ่มเข้า queue: ${query}`);
     }
-  }
-
-  if (command === "!pause") {
-    if (serverQueue && serverQueue.player) {
-      serverQueue.player.pause();
-      return message.reply("⏸️ หยุดเพลงแล้ว");
-    }
-  }
-
-  if (command === "!resume") {
-    if (serverQueue && serverQueue.player) {
-      serverQueue.player.unpause();
-      return message.reply("▶️ เล่นเพลงต่อแล้ว");
-    }
-  }
-
-  if (command === "!queue") {
-    if (!serverQueue || serverQueue.songs.length === 0) {
-      return message.reply("📭 ไม่มีเพลงในคิว");
-    }
-    return message.reply(
-      "📜 คิวเพลง:\\n" +
-        serverQueue.songs.map((song, i) => `${i + 1}. ${song}`).join("\\n")
-    );
   }
 });
 
 async function playSong(guild, query) {
-  if (!query) return;
-
   try {
-    const results = await play.search(query, { limit: 1 });
-    if (!results.length) return console.log("ไม่พบเพลง");
+    const serverQueue = queue.get(guild.id);
+    if (!serverQueue) return;
 
-    const song = results[0];
-    console.log("เล่นเพลง:", song.title, song.url);
+    const result = await ytSearch(query);
+    const video = result.videos[0];
+    if (!video) return console.log("❌ ไม่พบเพลง");
 
-    // ส่ง video_info เข้า play.stream()
-    const stream = await play.stream(song.url);
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type,
-    });
-    play.play(resource);
-  } catch (error) {
-    console.error("เกิดข้อผิดพลาดตอนดึง stream:", error);
+    console.log("🎶 Playing:", video.title);
+
+    const subprocess = execa(
+      "yt-dlp",
+      [
+        "-f",
+        "bestaudio",
+        "-o",
+        "-", // stream to stdout
+        "--quiet",
+        "--no-warnings",
+        video.url,
+      ],
+      {
+        stdout: "pipe",
+      }
+    );
+
+    const stream = new PassThrough();
+    subprocess.stdout.pipe(stream);
+
+    const resource = createAudioResource(stream);
+    serverQueue.player.play(resource);
+  } catch (err) {
+    console.error("❌ เกิดข้อผิดพลาด:", err);
   }
 }
 
