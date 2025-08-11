@@ -26,6 +26,7 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates,
   ],
 });
+console.log("client created:", client);
 
 const queue = new Map();
 
