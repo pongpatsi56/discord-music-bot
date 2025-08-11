@@ -218,6 +218,11 @@ async function playSong(guild, query) {
   serverQueue.player.play(resource);
 }
 
+console.log("process.env.TOKEN=>", process?.env?.TOKEN);
+if (!process.env.TOKEN) {
+  console.error("❌ TOKEN is missing in environment variables.");
+  process.exit(1);
+}
 client.login(process.env.TOKEN);
 
 //
