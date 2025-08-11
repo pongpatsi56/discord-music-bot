@@ -11,6 +11,7 @@ import { execa } from "execa";
 import { PassThrough } from "stream";
 import ytSearch from "yt-search";
 import dotenv from "dotenv";
+import express from "express";
 
 console.log(generateDependencyReport());
 dotenv.config();
@@ -242,3 +243,14 @@ async function playSong(guild, song) {
 }
 
 client.login(process.env.TOKEN);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => {
+  res.send("Bot is running!");
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Web server running on port ${PORT}`);
+});
