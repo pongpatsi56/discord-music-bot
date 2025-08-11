@@ -26,7 +26,6 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates,
   ],
 });
-console.log("client created:", client);
 
 const queue = new Map();
 
@@ -198,14 +197,20 @@ async function playSong(guild, query) {
 
   console.log("🎶 Playing:", videoUrl);
 
-  const subprocess = youtubedl(
-    videoUrl,
-    {
-      output: "-",
-      format: "bestaudio",
-      quiet: true,
-    },
-    { stdio: ["ignore", "pipe", "ignore"] }
+  // const subprocess = youtubedl(
+  //   videoUrl,
+  //   {
+  //     output: "-",
+  //     format: "bestaudio",
+  //     quiet: true,
+  //   },
+  //   { stdio: ["ignore", "pipe", "ignore"] }
+  // );
+
+  const subprocess = execa(
+    "yt-dlp",
+    ["-f", "bestaudio", "-o", "-", "--quiet", "--no-warnings", video.url],
+    { stdout: "pipe" }
   );
 
   const stream = new PassThrough();
@@ -241,7 +246,28 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get("/", (_, res) => {
+  client
+    .login(process.env.TOKEN)
+    .then(() => {
+      console.log(`✅ Logged in as ${client.user.tag}`);
+    })
+    .catch((err) => {
+      console.error("❌ Failed to login:", err);
+    });
   res.send("Discord bot is running!");
+});
+
+app.get("/bot-login", (_, res) => {
+  client
+    .login(process.env.TOKEN)
+    .then(() => {
+      console.log(`✅ Logged in as ${client.user.tag}`);
+      res.send(`✅ Logged in as ${client.user.tag}`);
+    })
+    .catch((err) => {
+      console.error("❌ Failed to login:", err);
+      res.send(`❌ Failed to login: ${err?.message}`);
+    });
 });
 
 app.listen(PORT, () => {
